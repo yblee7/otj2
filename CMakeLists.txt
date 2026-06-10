@@ -30,6 +30,7 @@ configure_file(
     ${CMAKE_CURRENT_BINARY_DIR}/version.rc
     @ONLY)
 
+find_package(OpenMP)
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets REQUIRED)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
 find_package(OpenCV REQUIRED world)
@@ -83,7 +84,7 @@ if(MSVC)
     target_link_options(ojt_homography PRIVATE /SUBSYSTEM:CONSOLE)
 endif()
 
-target_link_libraries(ojt_homography PRIVATE Qt${QT_VERSION_MAJOR}::Widgets ${OpenCV_LIBRARIES} Eigen3::Eigen)
+target_link_libraries(ojt_homography PRIVATE Qt${QT_VERSION_MAJOR}::Widgets ${OpenCV_LIBRARIES} Eigen3::Eigen $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>)
 
 set_target_properties(ojt_homography PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER cle.vision

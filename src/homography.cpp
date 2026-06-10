@@ -251,6 +251,7 @@ Eigen::Matrix3d Homography::compute(const std::vector<Eigen::Vector2d> &source_p
     const int srcHeight = src_mat.rows;
     const int channel   = src_mat.channels();
 
+    #pragma omp parallel for schedule(static)
     for (int row = 0; row < output_size.height; row++)
     {
         unsigned char *dstRow = dst_mat.ptr<unsigned char>(row);
