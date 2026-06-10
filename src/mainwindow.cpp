@@ -10,6 +10,7 @@
 #include <QThread>
 #include <QTimer>
 #include <QSharedMemory>
+#include <QSignalBlocker>
 
 #include <sstream>
 
@@ -83,9 +84,10 @@ void MainWindow::printMessageOnStatusBar(QString *msg)
 
 void MainWindow::pointsUpdatedReceived()
 {
-    // Backward corner location updating implementation in this function body
-
     QObject *obj = sender();
+    if (obj == nullptr)
+        return;
+
     QList<QPointF> points;
     if(obj->objectName() == "viewOriginal")
     {
@@ -95,21 +97,58 @@ void MainWindow::pointsUpdatedReceived()
     {
         points = ui->viewRectified->getCorners();
 
+        if (has_homography)
+        {
+            const QList<QPointF> original_points = transformPoints(points, H.inverse());
+            if (original_points.size() == points.size())
+            {
+                const QSignalBlocker blocker(ui->viewOriginal);
+                ui->viewOriginal->setCorners(original_points);
+                updateCornerListView("viewOriginal", original_points);
+            }
+        }
     }
-    QStringList points_string_list;
+    else
+    {
+        return;
+    }
 
+    updateCornerListView(obj->objectName(), points);
+}
+
+QList<QPointF> MainWindow::transformPoints(const QList<QPointF> &points, const Eigen::Matrix3d &transform) const
+{
+    QList<QPointF> transformed_points;
+    transformed_points.reserve(points.size());
+
+    for (const QPointF &p : points)
+    {
+        Eigen::Vector3d q = transform * Eigen::Vector3d(p.x(), p.y(), 1.0);
+        if (std::abs(q.z()) <= std::numeric_limits<double>::epsilon())
+            continue;
+
+        q /= q.z();
+        transformed_points.push_back(QPointF(q.x(), q.y()));
+    }
+
+    return transformed_points;
+}
+
+void MainWindow::updateCornerListView(const QString &viewer_name, const QList<QPointF> &points)
+{
+    QStringList points_string_list;
     for (const auto &p : points)
     {
         QString point_string = QString("(%1, %2)").arg(p.x()).arg(p.y());
         points_string_list.push_back(point_string);
     }
 
-    if(obj->objectName() == "viewOriginal")
+    if(viewer_name == "viewOriginal")
     {
         model_corners_original->setStringList(points_string_list);
         ui->listViewCornersOriginal->setModel(model_corners_original);
     }
-    else if(obj->objectName() == "viewRectified")
+    else if(viewer_name == "viewRectified")
     {
         model_corners_rectified->setStringList(points_string_list);
         ui->listViewCornersRectified->setModel(model_corners_rectified);
@@ -196,6 +235,7 @@ void MainWindow::listViewFilesCurrentChanged(const QModelIndex &current, const Q
     if (!image.isNull())
     {
         current_filepath = file_path;
+        has_homography = false;
         ui->viewOriginal->setImage(image);
         ui->tabWidget->setCurrentIndex(0);
     }
@@ -256,6 +296,7 @@ void MainWindow::openFirstImageFileFromDirectory(QDir dir)
 
     if (!image.isNull())
     {
+        has_homography = false;
         ui->viewOriginal->setImage(image);
         ui->lineEditDirectory->setText(dir.path());
         selection_model->select(model->index(0, 0), QItemSelectionModel::Select);
@@ -357,6 +398,7 @@ void MainWindow::on_btnRectify_clicked()
     std::vector<Eigen::Vector2d> destination_points = {dp1, dp2, dp3, dp4};
 
     H = homography->compute(source_points, destination_points);
+    has_homography = true;
 
     QImage image_transformed = homography->getTransformedImage();
     ui->viewRectified->setImage(image_transformed);

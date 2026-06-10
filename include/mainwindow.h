@@ -51,9 +51,12 @@ private:
     QString current_filepath;
 
     Eigen::Matrix3d H;
+    bool has_homography = false;
 
     void updateListView(QDir dir);
     void openFirstImageFileFromDirectory(QDir dir);
+    QList<QPointF> transformPoints(const QList<QPointF> &points, const Eigen::Matrix3d &transform) const;
+    void updateCornerListView(const QString &viewer_name, const QList<QPointF> &points);
 
     void updateLog(const QString& log);
     void updateLog(const std::string& log);
