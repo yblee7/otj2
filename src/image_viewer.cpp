@@ -255,6 +255,15 @@ void ImageViewer::paintEvent(QPaintEvent *event)
         {
             dst_rect = QRectF(1, 1, magnifier_rect.width(), magnifier_rect.height());
         }
+        else // Cursor
+        {
+            dst_rect = QRectF(
+                cursor_pose_widget.x() - magnifier_rect.width()  / 2.0,
+                cursor_pose_widget.y() - magnifier_rect.height() / 2.0,
+                magnifier_rect.width(),
+                magnifier_rect.height()
+            );
+        }
         
         // 이미지 영역에 그리기
         painter.drawImage(dst_rect, image, src_rect);
