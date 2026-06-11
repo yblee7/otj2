@@ -255,7 +255,7 @@ void ImageViewer::paintEvent(QPaintEvent *event)
         {
             dst_rect = QRectF(1, 1, magnifier_rect.width(), magnifier_rect.height());
         }
-        else // Cursor
+        else if(magnifier_location == MagnifierLocation::Cursor)
         {
             dst_rect = QRectF(
                 cursor_pose_widget.x() - magnifier_rect.width()  / 2.0,
@@ -264,8 +264,13 @@ void ImageViewer::paintEvent(QPaintEvent *event)
                 magnifier_rect.height()
             );
         }
-        
-        // 이미지 영역에 그리기
+        else
+        {
+            qreal x = cursor_pose_widget.x() > this->rect().center().x() ? 0 : this->rect().width()  - magnifier_rect.width();
+            qreal y = cursor_pose_widget.y() > this->rect().center().y() ? 0 : this->rect().height() - magnifier_rect.height();
+            dst_rect = QRectF(x, y, magnifier_rect.width(), magnifier_rect.height());
+        }
+
         painter.drawImage(dst_rect, image, src_rect);
 
         // image coord -> magnifier widget coord
