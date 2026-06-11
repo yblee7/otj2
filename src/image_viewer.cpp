@@ -239,6 +239,55 @@ void ImageViewer::paintEvent(QPaintEvent *event)
 
     offset = new_top_left;
 
+    if(show_magnifier && !image.isNull())
+    {
+        const double magnifier_zoom = 4.0;
+
+        QRectF src_rect(
+            cursor_pose_image.x() - magnifier_rect.width()  / (2.0 * magnifier_zoom * image_zoom),
+            cursor_pose_image.y() - magnifier_rect.height() / (2.0 * magnifier_zoom * image_zoom),
+            magnifier_rect.width()  / (magnifier_zoom * image_zoom),
+            magnifier_rect.height() / (magnifier_zoom * image_zoom)
+        );
+
+        QRectF dst_rect;
+        if(magnifier_location == MagnifierLocation::TopLeft)
+        {
+            dst_rect = QRectF(1, 1, magnifier_rect.width(), magnifier_rect.height());
+        }
+        
+        // 이미지 영역에 그리기
+        painter.drawImage(dst_rect, image, src_rect);
+
+        // image coord -> magnifier widget coord
+        auto toMagnifier = [&](const QPointF &p) {
+            return QPointF(dst_rect.left() + (p.x() - src_rect.left()) * magnifier_zoom * image_zoom,
+                           dst_rect.top()  + (p.y() - src_rect.top())  * magnifier_zoom * image_zoom);
+        };
+
+        if(corners.size() > 0)
+        {
+            painter.setClipRect(dst_rect);
+            painter.setPen(QPen(selected_point > -1 ? Qt::red : Qt::green, 3));
+            painter.setBrush(Qt::NoBrush);
+            for(size_t i = 0; i < corners.size(); ++i)
+                painter.drawLine(toMagnifier(corners[i]),
+                                 toMagnifier(corners[(i + 1) % corners.size()]));
+            painter.setClipping(false);
+        }
+        
+        // 테두리랑 중앙 선 그리기
+        painter.setPen(QPen(Qt::yellow, 1));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawLine(QPointF(dst_rect.left(),       dst_rect.center().y()),
+                         QPointF(dst_rect.right(),      dst_rect.center().y()));
+        painter.drawLine(QPointF(dst_rect.center().x(), dst_rect.top()),
+                         QPointF(dst_rect.center().x(), dst_rect.bottom()));
+
+        painter.setPen(QPen(QColor(0, 255, 255), 2));
+        painter.drawRect(dst_rect);
+    }
+
     int pen_size_min = 4 * image_zoom < 4 ? 4 : 4 * image_zoom;
     if(corners.size() > 0)
     {
@@ -259,11 +308,6 @@ void ImageViewer::paintEvent(QPaintEvent *event)
             const QPointF &p2 = imagePoseToWidgetPose(corners[j]);
             painter.drawLine(p1, p2);
         }
-    }
-
-    if(show_magnifier)
-    {
-        // Magnifier implementation here
     }
 
     painter.end();
