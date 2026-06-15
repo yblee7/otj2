@@ -397,6 +397,11 @@ void MainWindow::on_btnRectify_clicked()
     H = homography->compute(source_points, destination_points);
     has_homography = true;
 
+    const Eigen::IOFormat matrix_format(10, 0, " ", "\n", "", "", "", "");
+    std::stringstream homography_msg;
+    homography_msg << "homography matrix:\n" << H.format(matrix_format);
+    updateLog(homography_msg);
+
     QImage image_transformed = homography->getTransformedImage();
     ui->viewRectified->setImage(image_transformed);
 
