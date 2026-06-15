@@ -1,56 +1,16 @@
 #include "image_viewer.h"
+#include "document_corner_detector.h"
 #include "homography.h"
 
 #include <QDebug>
 
 #include <opencv2/core.hpp>
-//#include <opencv2/ximgproc.hpp>
-#include <opencv2/highgui.hpp>
-
-std::vector<Eigen::Vector2d> organizePoints(const std::vector<Eigen::Vector2d> &points)
-{
-    std::vector<Eigen::Vector2d> points_organized = points;
-    Eigen::Vector2d centroid(0, 0);
-    for(const auto &p : points)
-    {
-        centroid += p;
-    }
-    centroid /= (double)points.size();
-    for(auto &p : points_organized)
-    {
-        p -= centroid;
-    }
-    struct {
-        bool operator()(Eigen::Vector2d a, Eigen::Vector2d b) const
-        {
-            return atan2(a(1), a(0)) < atan2(b(1), b(0));
-        }
-    } compareAngle;
-
-    std::sort(points_organized.begin(), points_organized.end(), compareAngle);
-
-    for(auto &p : points_organized)
-    {
-        p += centroid;
-    }
-
-    return points_organized;
-}
-
-void rangeAngle(double &angle)
-{
-    if(angle < 0)
-        angle += 2 * M_PI;
-
-    if(angle > M_PI)
-        angle = 2 * M_PI - angle;
-
-}
 
 ImageViewer::ImageViewer(QWidget *parent) :
     QWidget(parent),
     is_translating(false),
     is_zooming(false),
+    is_resetting(false),
     image_zoom(1),
     show_magnifier(false),
     view_corners(true),
@@ -129,17 +89,26 @@ QPointF ImageViewer::imagePoseToWidgetPose(const QPointF& image_pose)
 
 void ImageViewer::resetCorners()
 {
-    // Implement document's corner detection algorithm below
+    corners.clear();
 
-    if(corners.size() == 0)
+    if (!image.isNull())
     {
-        int width = this->image.width();
-        int height = this->image.height();
-        corners.push_back(QPointF(width * 0.1, height * 0.1));
-        corners.push_back(QPointF(width * 0.9, height * 0.1));
-        corners.push_back(QPointF(width * 0.9, height * 0.9));
-        corners.push_back(QPointF(width * 0.1, height * 0.9));
+        QList<QPointF> detected = DocumentCornerDetector::detect(image);
+        if (detected.size() == 4)
+        {
+            corners = detected;
+            emit infoCornersUpdated();
+            return;
+        }
     }
+
+    // 검출 실패 시 기본 위치 (10%~90%)
+    int width  = this->image.width();
+    int height = this->image.height();
+    corners.push_back(QPointF(width * 0.1, height * 0.1));
+    corners.push_back(QPointF(width * 0.9, height * 0.1));
+    corners.push_back(QPointF(width * 0.9, height * 0.9));
+    corners.push_back(QPointF(width * 0.1, height * 0.9));
 
     emit infoCornersUpdated();
 }
@@ -157,8 +126,6 @@ bool ImageViewer::setImage(const QImage &image_in)
 
     cursor_pose_image = QPointF(0, 0);
     cursor_pose_widget = QPointF(0, 0);
-
-    QString object_name = this->objectName();
 
     if(detect_corners)
     {
@@ -284,7 +251,7 @@ void ImageViewer::paintEvent(QPaintEvent *event)
             painter.setClipRect(dst_rect);
             painter.setPen(QPen(selected_point > -1 ? Qt::red : Qt::green, 3));
             painter.setBrush(Qt::NoBrush);
-            for(size_t i = 0; i < corners.size(); ++i)
+            for(int i = 0; i < corners.size(); ++i)
                 painter.drawLine(toMagnifier(corners[i]),
                                  toMagnifier(corners[(i + 1) % corners.size()]));
             painter.setClipping(false);
@@ -315,10 +282,10 @@ void ImageViewer::paintEvent(QPaintEvent *event)
             painter.setPen(QPen(Qt::green, pen_size_min * 0.5));
             painter.setBrush(Qt::green);
         }
-        for (size_t i = 0; i < corners.size(); ++i)
+        for (int i = 0; i < corners.size(); ++i)
         {
             const QPointF &p1 = imagePoseToWidgetPose(corners[i]);
-            size_t j = (i + 1) % corners.size();
+            int j = (i + 1) % corners.size();
             const QPointF &p2 = imagePoseToWidgetPose(corners[j]);
             painter.drawLine(p1, p2);
         }
@@ -382,8 +349,8 @@ void ImageViewer::mousePressEvent(QMouseEvent *event)
     {
         Eigen::Vector2d pose(cursor_pose_image.x(), cursor_pose_image.y());
         double nearest_distance = 1e6;
-        size_t nearest_index = 0;
-        for(size_t i = 0; i < corners.size(); ++i)
+        int nearest_index = 0;
+        for(int i = 0; i < corners.size(); ++i)
         {
             const QPointF &p = corners[i];
             double distance = (pose - Eigen::Vector2d(p.x(), p.y())).norm();

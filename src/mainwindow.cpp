@@ -14,9 +14,6 @@
 
 #include <sstream>
 
-//#include <opencv2/ximgproc.hpp>
-#include <opencv2/highgui.hpp>
-
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
                                           ui(new Ui::MainWindow)
 {
@@ -434,7 +431,7 @@ void MainWindow::updateLog(const std::string &log)
 
 void MainWindow::updateLog(const char *log)
 {
-    updateLog(log);
+    updateLog(QString::fromUtf8(log));
 }
 
 void MainWindow::updateLog(std::stringstream &log)
