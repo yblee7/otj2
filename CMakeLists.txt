@@ -40,6 +40,8 @@ set(PROJECT_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/mainwindow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/mainwindow.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/mainwindow.ui
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/document_corner_detector.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document_corner_detector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/image_viewer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/image_viewer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/homography.h
