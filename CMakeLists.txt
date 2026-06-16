@@ -33,8 +33,8 @@ configure_file(
 find_package(OpenMP)
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets REQUIRED)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
-find_package(OpenCV REQUIRED world)
-find_package(Eigen3 REQUIRED)
+find_package(OpenCV 4.7 REQUIRED world)
+find_package(Eigen3 3.4 REQUIRED)
 
 set(PROJECT_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/mainwindow.cpp
