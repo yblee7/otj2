@@ -451,6 +451,19 @@ static QList<QPointF> orderAndScale(std::vector<cv::Point2f> pts, double inv_sca
     return result;
 }
 
+static void refineCornersSubPixel(const cv::Mat &rgb_in, std::vector<cv::Point2f> &points)
+{
+    if (points.size() != 4)
+        return;
+
+    cv::Mat gray;
+    cv::cvtColor(rgb_in, gray, cv::COLOR_RGB2GRAY);
+
+    cv::cornerSubPix(gray, points, cv::Size(7, 7), cv::Size(-1, -1),
+                     cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT,
+                                      20, 0.03));
+}
+
 QList<QPointF> DocumentCornerDetector::detect(const QImage &qimage)
 {
     QImage img = qimage.convertToFormat(QImage::Format_RGB888);
@@ -506,5 +519,6 @@ QList<QPointF> DocumentCornerDetector::detect(const QImage &qimage)
         return {};
     }
 
+    refineCornersSubPixel(detectionImg, points);
     return orderAndScale(points, 1.0 / scale);
 }
