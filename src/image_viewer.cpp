@@ -206,6 +206,9 @@ void ImageViewer::paintEvent(QPaintEvent *event)
 
     offset = new_top_left;
 
+    QRectF active_magnifier_rect;
+    bool has_active_magnifier = false;
+
     if(show_magnifier && !image.isNull())
     {
         const double magnifier_zoom = 4.0;
@@ -237,6 +240,8 @@ void ImageViewer::paintEvent(QPaintEvent *event)
             qreal y = cursor_pose_widget.y() > this->rect().center().y() ? this->rect().height() - magnifier_rect.height() : 0;
             dst_rect = QRectF(x, y, magnifier_rect.width(), magnifier_rect.height());
         }
+        active_magnifier_rect = dst_rect;
+        has_active_magnifier = true;
 
         painter.drawImage(dst_rect, image, src_rect);
 
@@ -272,6 +277,14 @@ void ImageViewer::paintEvent(QPaintEvent *event)
     int pen_size_min = 4 * image_zoom < 4 ? 4 : 4 * image_zoom;
     if(corners.size() > 0)
     {
+        painter.save();
+        if (has_active_magnifier)
+        {
+            QRegion clip_region(this->rect());
+            clip_region -= QRegion(active_magnifier_rect.toAlignedRect());
+            painter.setClipRegion(clip_region);
+        }
+
         if(selected_point > -1)
         {
             painter.setPen(QPen(Qt::red , pen_size_min * 0.5));
@@ -289,6 +302,7 @@ void ImageViewer::paintEvent(QPaintEvent *event)
             const QPointF &p2 = imagePoseToWidgetPose(corners[j]);
             painter.drawLine(p1, p2);
         }
+        painter.restore();
     }
 
     painter.end();
