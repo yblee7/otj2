@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <cmath>
 #include <iostream>
 #include <fstream>
 
@@ -385,6 +386,8 @@ void MainWindow::on_btnRectify_clicked()
     std::stringstream msg;
     msg << "aspect_ratio: " << aspect_ratio;
     updateLog(msg);
+    if (aspect_ratio <= 0.0 || !std::isfinite(aspect_ratio))
+        return;
 
     Eigen::Vector2d dp1 = Eigen::Vector2d(image.width() * 0.1, image.width() * 0.1);
     Eigen::Vector2d dp2 = Eigen::Vector2d(image.width() * 0.9, image.width() * 0.1);

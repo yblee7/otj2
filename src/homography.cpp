@@ -1,5 +1,7 @@
 #include "homography.h"
+#include <cmath>
 #include <iostream>
+#include <limits>
 #include <QMessageBox>
 
 Homography::Homography(QWidget *parent) : QWidget(parent)
@@ -59,7 +61,6 @@ double Homography::computeRealAspectRatio(const Eigen::Vector2d &center,
                                           const std::vector<Eigen::Vector2d> &corners,
                                           Eigen::Vector3d &euler_angles)
 {
-    // Implement requested functionality based on below lines
     if(corners.size() != 4)
         return -1;
 
@@ -82,7 +83,43 @@ double Homography::computeRealAspectRatio(const Eigen::Vector2d &center,
     Eigen::Vector3d n2 = k2 * p2 - p1;
     Eigen::Vector3d n3 = k3 * p3 - p1;
 
-    return sqrt((n2.x() * n2.x() + n2.y() * n2.y()) / (n3.x() * n3.x() + n3.y() * n3.y()));
+    const auto metricAspectRatio = [&n2, &n3](double focal_squared) {
+        const auto metricNormSquared = [focal_squared](const Eigen::Vector3d &v) {
+            return (v.x() * v.x() + v.y() * v.y()) / focal_squared + v.z() * v.z();
+        };
+
+        const double width_metric = metricNormSquared(n2);
+        const double height_metric = metricNormSquared(n3);
+        if (width_metric < 0.0 || height_metric <= std::numeric_limits<double>::epsilon())
+            return -1.0;
+
+        return std::sqrt(width_metric / height_metric);
+    };
+
+    const auto fallbackMetricAspectRatio = [&center, &metricAspectRatio](bool parallel_limit) {
+        const double image_width = std::abs(center.x()) * 2.0 + 1.0;
+        const double image_height = std::abs(center.y()) * 2.0 + 1.0;
+        const double max_dim = std::max(image_width, image_height);
+        const double focal = parallel_limit ? max_dim * 2.0 : max_dim * 0.5;
+        return metricAspectRatio(focal * focal);
+    };
+
+    constexpr double eps = 1e-12;
+    const double focal_den = n2.z() * n3.z();
+    if (std::abs(focal_den) <= eps)
+    {
+        const double ratio = fallbackMetricAspectRatio(true);
+        return std::isfinite(ratio) ? ratio : -1.0;
+    }
+
+    const double focal_squared = -(n2.x() * n3.x() + n2.y() * n3.y()) / focal_den;
+    if (focal_squared <= std::numeric_limits<double>::epsilon() || !std::isfinite(focal_squared))
+    {
+        const double ratio = fallbackMetricAspectRatio(false);
+        return std::isfinite(ratio) ? ratio : -1.0;
+    }
+
+    return metricAspectRatio(focal_squared);
 }
 
 // 역변환 위해서 구조체 정의
