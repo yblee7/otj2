@@ -234,7 +234,7 @@ void ImageViewer::paintEvent(QPaintEvent *event)
         else
         {
             qreal x = cursor_pose_widget.x() > this->rect().center().x() ? 0 : this->rect().width()  - magnifier_rect.width();
-            qreal y = cursor_pose_widget.y() > this->rect().center().y() ? 0 : this->rect().height() - magnifier_rect.height();
+            qreal y = cursor_pose_widget.y() > this->rect().center().y() ? this->rect().height() - magnifier_rect.height() : 0;
             dst_rect = QRectF(x, y, magnifier_rect.width(), magnifier_rect.height());
         }
 
