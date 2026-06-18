@@ -264,9 +264,10 @@ Eigen::Matrix3d Homography::compute(const std::vector<Eigen::Vector2d> &source_p
         max_x = std::max(max_x, p.x());
         max_y = std::max(max_y, p.y());
     }
+    const int output_margin = static_cast<int>(std::ceil(image.width() * 0.1));
     const cv::Size output_size(
         std::max(image.width(),  static_cast<int>(std::ceil(max_x)) + 1),
-        std::max(image.height(), static_cast<int>(std::ceil(max_y)) + 1));
+        static_cast<int>(std::ceil(max_y)) + output_margin);
 
     cv::Mat src_mat(image.height(), image.width(), CV_8UC3,
                     const_cast<uchar *>(image.bits()),
