@@ -96,27 +96,21 @@ double Homography::computeRealAspectRatio(const Eigen::Vector2d &center,
         return std::sqrt(width_metric / height_metric);
     };
 
-    const auto fallbackMetricAspectRatio = [&center, &metricAspectRatio](bool parallel_limit) {
-        const double image_width = std::abs(center.x()) * 2.0 + 1.0;
-        const double image_height = std::abs(center.y()) * 2.0 + 1.0;
-        const double max_dim = std::max(image_width, image_height);
-        const double focal = parallel_limit ? max_dim * 2.0 : max_dim * 0.5;
-        return metricAspectRatio(focal * focal);
+    const auto fallbackMetricAspectRatio = [&n2, &n3]() 
+    {
+        return sqrt((n2.x() * n2.x() + n2.y() * n2.y()) / (n3.x() * n3.x() + n3.y() * n3.y()));
     };
 
-    constexpr double eps = 1e-12;
     const double focal_den = n2.z() * n3.z();
-    if (std::abs(focal_den) <= eps)
+    if (std::abs(focal_den) <= std::numeric_limits<double>::epsilon())
     {
-        const double ratio = fallbackMetricAspectRatio(true);
-        return std::isfinite(ratio) ? ratio : -1.0;
+        return fallbackMetricAspectRatio();
     }
 
     const double focal_squared = -(n2.x() * n3.x() + n2.y() * n3.y()) / focal_den;
     if (focal_squared <= std::numeric_limits<double>::epsilon() || !std::isfinite(focal_squared))
     {
-        const double ratio = fallbackMetricAspectRatio(false);
-        return std::isfinite(ratio) ? ratio : -1.0;
+        return fallbackMetricAspectRatio();
     }
 
     return metricAspectRatio(focal_squared);
