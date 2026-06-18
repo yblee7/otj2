@@ -113,6 +113,25 @@ double Homography::computeRealAspectRatio(const Eigen::Vector2d &center,
         return fallbackMetricAspectRatio();
     }
 
+    const double focal = std::sqrt(focal_squared);
+    const Eigen::Matrix3d inv_camera =
+        (Eigen::Matrix3d() << 1.0 / focal, 0.0, 0.0,
+                             0.0, 1.0 / focal, 0.0,
+                             0.0, 0.0, 1.0)
+            .finished();
+
+    Eigen::Vector3d r1 = inv_camera * n2;
+    Eigen::Vector3d r2 = inv_camera * n3;
+    r1.normalize();
+    r2.normalize();
+    Eigen::Vector3d r3 = r1.cross(r2).normalized();
+
+    Eigen::Matrix3d rotation;
+    rotation.col(0) = r1;
+    rotation.col(1) = r2;
+    rotation.col(2) = r3;
+    euler_angles = rotationMatrixToEulerAngles(rotation);
+
     return metricAspectRatio(focal_squared);
 }
 

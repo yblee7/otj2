@@ -12,6 +12,7 @@
 #include <QTimer>
 #include <QSharedMemory>
 #include <QSignalBlocker>
+#include <QtMath>
 
 #include <sstream>
 
@@ -386,6 +387,13 @@ void MainWindow::on_btnRectify_clicked()
     std::stringstream msg;
     msg << "aspect_ratio: " << aspect_ratio;
     updateLog(msg);
+
+    std::stringstream euler_deg_msg;
+    euler_deg_msg << "euler_angles(deg): "
+                  << qRadiansToDegrees(euler_angles.x()) << ", "
+                  << qRadiansToDegrees(euler_angles.y()) << ", "
+                  << qRadiansToDegrees(euler_angles.z());
+    updateLog(euler_deg_msg);
     if (aspect_ratio <= 0.0 || !std::isfinite(aspect_ratio))
         return;
 
