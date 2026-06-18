@@ -34,8 +34,32 @@ void Homography::updateLog(std::stringstream &msg)
     emit updateLogToMainWindow(msg);
 }
 
+Eigen::Vector3d rotationMatrixToEulerAngles(const Eigen::Matrix3d &R)
+{
+    double sy = sqrt(R(0,0) * R(0,0) +  R(1,0) * R(1,0) );
+ 
+    bool singular = sy < 1e-6;
+ 
+    double x, y, z;
+    if (!singular)
+    {
+        x = atan2(R(2,1) , R(2,2));
+        y = atan2(-R(2,0), sy);
+        z = atan2(R(1,0), R(0,0));
+    }
+    else
+    {
+        x = atan2(-R(1,2), R(1,1));
+        y = atan2(-R(2,0), sy);
+        z = 0;
+    }
+
+    return Eigen::Vector3d(x, y, z);
+}
+
 double Homography::computeRealAspectRatio(const Eigen::Vector2d &center,
-                                          const std::vector<Eigen::Vector2d> &corners)
+                                          const std::vector<Eigen::Vector2d> &corners,
+                                          Eigen::Vector3d &euler_angles)
 {
     if(corners.size() != 4)
         return -1;

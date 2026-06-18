@@ -380,7 +380,8 @@ void MainWindow::on_btnRectify_clicked()
     homography->setImage(image);
 
     Eigen::Vector2d center((image.width() - 1) * 0.5, (image.height() - 1) * 0.5);
-    double aspect_ratio = Homography::computeRealAspectRatio(center, source_points);
+    Eigen::Vector3d euler_angles;
+    double aspect_ratio = Homography::computeRealAspectRatio(center, source_points, euler_angles);
 
     std::stringstream msg;
     msg << "aspect_ratio: " << aspect_ratio;
