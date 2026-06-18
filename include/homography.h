@@ -45,8 +45,7 @@ public:
     void setImage(const QImage& image_in);
 
     static double computeRealAspectRatio(const Eigen::Vector2d &center,
-                                         const std::vector<Eigen::Vector2d> &corners,
-                                         Eigen::Vector3d &euler_angles);
+                                         const std::vector<Eigen::Vector2d> &corners);
 
     Eigen::Matrix3d compute(const std::vector<Eigen::Vector2d> &source_points,
                             const std::vector<Eigen::Vector2d> &destination_points,
