@@ -2,7 +2,6 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
-#include <QMessageBox>
 
 Homography::Homography(QWidget *parent) : QWidget(parent)
 {
@@ -64,7 +63,10 @@ double Homography::computeRealAspectRatio(const Eigen::Vector2d &center,
     euler_angles.setZero();
 
     if(corners.size() != 4)
+    {
+        std::cerr << "Aspect Ratio 계산에는 4개의 코너 점이 필요합니다." << std::endl;
         return -1;
+    }
 
     std::vector<Eigen::Vector3d> corners_centered_homogeneous =
     {
@@ -82,7 +84,10 @@ double Homography::computeRealAspectRatio(const Eigen::Vector2d &center,
     const double k2_den = p2.cross(p4).dot(p3);
     const double k3_den = p3.cross(p4).dot(p2);
     if (k2_den == 0.0 || k3_den == 0.0)
+    {
+        std::cerr << "Aspect Ratio 계산 시 0으로 나눌 수 없습니다." << std::endl;
         return -1;
+    }
 
     double k2 = p1.cross(p4).dot(p3) / k2_den;
     double k3 = p1.cross(p4).dot(p2) / k3_den;
@@ -121,6 +126,7 @@ double Homography::computeRealAspectRatio(const Eigen::Vector2d &center,
         if (k2_singular && k3_singular)
             return fallbackMetricAspectRatio();
 
+        std::cerr << "Aspect Ratio 계산 중 한쪽 방향만 특이점으로 판정되어 계산할 수 없습니다." << std::endl;
         return -1.0;
     }
 
@@ -128,6 +134,7 @@ double Homography::computeRealAspectRatio(const Eigen::Vector2d &center,
     const double focal_squared = -(n2.x() * n3.x() + n2.y() * n3.y()) / focal_den;
     if (focal_squared <= 0.0 || !std::isfinite(focal_squared))
     {
+        std::cerr << "초점거리 제곱값이 유효하지 않아 fallbackMetricAspectRatio 계산을 사용합니다." << std::endl;
         return fallbackMetricAspectRatio();
     }
 
@@ -237,18 +244,23 @@ Eigen::Matrix3d Homography::compute(const std::vector<Eigen::Vector2d> &source_p
     conditioned_destination_points.clear();
 
     if (source_points.size() != destination_points.size() || source_points.size() < 4)
+    {
+        std::cerr << "호모그래피 계산에는 동일한 개수의 source/destination 점이 최소 4쌍 필요합니다." << std::endl;
         return Eigen::Matrix3d::Identity();
+    }
 
     if (image.isNull())
+    {
+        std::cerr << "호모그래피 계산을 위한 원본 이미지가 없습니다." << std::endl;
         return Eigen::Matrix3d::Identity();
+    }
 
     const int n = static_cast<int>(source_points.size());
 
     // collinear 검사: 진행은 하되 경고 출력
     if (hasCollinearTriple(source_points) || hasCollinearTriple(destination_points))
     {
-        QMessageBox::warning(nullptr, "Warning",
-            "source 또는 destination points에 3점 이상 collinear(일직선)인 조합이 존재합니다.\n호모그래피를 계산할 수 없습니다.");
+        std::cerr << "source 또는 destination points에 3점 이상 collinear(일직선)인 조합이 존재합니다. 호모그래피를 계산할 수 없습니다." << std::endl;
     }
 
     // --- 정규화 ---
@@ -258,7 +270,10 @@ Eigen::Matrix3d Homography::compute(const std::vector<Eigen::Vector2d> &source_p
         src_norm = buildNormTransform(source_points);
         dst_norm = buildNormTransform(destination_points);
         if (!src_norm.valid || !dst_norm.valid)
+        {
+            std::cerr << "호모그래피 계산을 위한 점 정규화에 실패했습니다." << std::endl;
             return Eigen::Matrix3d::Identity();
+        }
     }
     else
     {
@@ -298,7 +313,10 @@ Eigen::Matrix3d Homography::compute(const std::vector<Eigen::Vector2d> &source_p
     // --- 역정규화: H = T_dst^{-1} * H̃ * T_src ---
     Eigen::Matrix3d H = dst_norm.transform.inverse() * H_norm * src_norm.transform;
     if (!isFiniteMatrix(H) || H.norm() <= std::numeric_limits<double>::epsilon())
+    {
+        std::cerr << "호모그래피 행렬이 유효하지 않아 계산을 중단합니다." << std::endl;
         return Eigen::Matrix3d::Identity();
+    }
 
     // 스케일 제거
     if (std::abs(H(2, 2)) > std::numeric_limits<double>::epsilon())
@@ -307,7 +325,10 @@ Eigen::Matrix3d Homography::compute(const std::vector<Eigen::Vector2d> &source_p
         H /= H.norm();
 
     if (!isFiniteMatrix(H) || std::abs(H.determinant()) <= std::numeric_limits<double>::epsilon())
+    {
+        std::cerr << "호모그래피 행렬이 역행렬이 없어 사용할 수 없습니다." << std::endl;
         return Eigen::Matrix3d::Identity();
+    }
 
     // --- 이미지 변환 (dst 점 기준 출력 크기) ---
     double max_x = 0.0, max_y = 0.0;
