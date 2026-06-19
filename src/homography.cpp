@@ -217,6 +217,16 @@ static bool hasCollinearTriple(const std::vector<Eigen::Vector2d> &pts)
     return false;
 }
 
+static bool isFiniteMatrix(const Eigen::Matrix3d &matrix)
+{
+    for (int row = 0; row < matrix.rows(); ++row)
+        for (int col = 0; col < matrix.cols(); ++col)
+            if (!std::isfinite(matrix(row, col)))
+                return false;
+
+    return true;
+}
+
 Eigen::Matrix3d Homography::compute(const std::vector<Eigen::Vector2d> &source_points,
                                     const std::vector<Eigen::Vector2d> &destination_points,
                                     const bool conditioning)
@@ -286,12 +296,17 @@ Eigen::Matrix3d Homography::compute(const std::vector<Eigen::Vector2d> &source_p
 
     // --- 역정규화: H = T_dst^{-1} * H̃ * T_src ---
     Eigen::Matrix3d H = dst_norm.transform.inverse() * H_norm * src_norm.transform;
+    if (!isFiniteMatrix(H) || H.norm() <= std::numeric_limits<double>::epsilon())
+        return Eigen::Matrix3d::Identity();
 
     // 스케일 제거
     if (std::abs(H(2, 2)) > std::numeric_limits<double>::epsilon())
         H /= H(2, 2);
     else
         H /= H.norm();
+
+    if (!isFiniteMatrix(H) || std::abs(H.determinant()) <= std::numeric_limits<double>::epsilon())
+        return Eigen::Matrix3d::Identity();
 
     // --- 이미지 변환 (dst 점 기준 출력 크기) ---
     double max_x = 0.0, max_y = 0.0;
