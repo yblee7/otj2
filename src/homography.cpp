@@ -243,9 +243,9 @@ Eigen::Matrix3d Homography::compute(const std::vector<Eigen::Vector2d> &source_p
     conditioned_source_points.clear();
     conditioned_destination_points.clear();
 
-    if (source_points.size() != destination_points.size() || source_points.size() < 4)
+    if (source_points.size() != 4 || destination_points.size() != 4)
     {
-        std::cerr << "호모그래피 계산에는 동일한 개수의 source/destination 점이 최소 4쌍 필요합니다." << std::endl;
+        std::cerr << "호모그래피 계산에는 source/destination 점이 각각 정확히 4개 필요합니다." << std::endl;
         return Eigen::Matrix3d::Identity();
     }
 
@@ -260,7 +260,7 @@ Eigen::Matrix3d Homography::compute(const std::vector<Eigen::Vector2d> &source_p
     // collinear 검사: 진행은 하되 경고 출력
     if (hasCollinearTriple(source_points) || hasCollinearTriple(destination_points))
     {
-        std::cerr << "source 또는 destination points에 3점 이상 collinear(일직선)인 조합이 존재합니다. 호모그래피를 계산할 수 없습니다." << std::endl;
+        std::cerr << "source 또는 destination points에 3점 이상 collinear(일직선)인 조합이 존재합니다." << std::endl;
     }
 
     // --- 정규화 ---
