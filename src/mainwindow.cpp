@@ -406,6 +406,13 @@ void MainWindow::on_btnRectify_clicked()
     std::vector<Eigen::Vector2d> destination_points = {dp1, dp2, dp3, dp4};
 
     H = homography->compute(source_points, destination_points);
+    QImage image_transformed = homography->getTransformedImage();
+    if (image_transformed.isNull())
+    {
+        updateLog("homography computation failed");
+        return;
+    }
+
     has_homography = true;
 
     const Eigen::IOFormat matrix_format(10, 0, " ", "\n", "", "", "", "");
@@ -413,7 +420,6 @@ void MainWindow::on_btnRectify_clicked()
     homography_msg << "homography matrix:\n" << H.format(matrix_format);
     updateLog(homography_msg);
 
-    QImage image_transformed = homography->getTransformedImage();
     ui->viewRectified->setImage(image_transformed);
 
     QList<QPointF> destination_points_qt = {QPointF(destination_points[0](0), destination_points[0](1)),
