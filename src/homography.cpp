@@ -113,8 +113,9 @@ double Homography::computeRealAspectRatio(const Eigen::Vector2d &center,
         return sqrt(width_squared / height_squared);
     };
 
-    const bool k2_singular = (k2 == 1.0);
-    const bool k3_singular = (k3 == 1.0);
+    const double singular_epsilon = std::sqrt(std::numeric_limits<double>::epsilon());
+    const bool k2_singular = std::abs(k2 - 1.0) <= singular_epsilon;
+    const bool k3_singular = std::abs(k3 - 1.0) <= singular_epsilon;
     if (k2_singular || k3_singular)
     {
         if (k2_singular && k3_singular)
