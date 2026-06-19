@@ -77,8 +77,13 @@ double Homography::computeRealAspectRatio(const Eigen::Vector2d &center,
     const Eigen::Vector3d &p3 = corners_centered_homogeneous[2];
     const Eigen::Vector3d &p4 = corners_centered_homogeneous[3];
 
-    double k2 = p1.cross(p4).dot(p3) / p2.cross(p4).dot(p3);
-    double k3 = p1.cross(p4).dot(p2) / p3.cross(p4).dot(p2);
+    const double k2_den = p2.cross(p4).dot(p3);
+    const double k3_den = p3.cross(p4).dot(p2);
+    if (k2_den == 0.0 || k3_den == 0.0)
+        return -1;
+
+    double k2 = p1.cross(p4).dot(p3) / k2_den;
+    double k3 = p1.cross(p4).dot(p2) / k3_den;
 
     Eigen::Vector3d n2 = k2 * p2 - p1;
     Eigen::Vector3d n3 = k3 * p3 - p1;
@@ -98,17 +103,27 @@ double Homography::computeRealAspectRatio(const Eigen::Vector2d &center,
 
     const auto fallbackMetricAspectRatio = [&n2, &n3]() 
     {
-        return sqrt((n2.x() * n2.x() + n2.y() * n2.y()) / (n3.x() * n3.x() + n3.y() * n3.y()));
+        const double width_squared = n2.x() * n2.x() + n2.y() * n2.y();
+        const double height_squared = n3.x() * n3.x() + n3.y() * n3.y();
+        if (height_squared == 0.0)
+            return -1.0;
+
+        return sqrt(width_squared / height_squared);
     };
 
-    const double focal_den = n2.z() * n3.z();
-    if (std::abs(focal_den) <= std::numeric_limits<double>::epsilon())
+    const bool k2_singular = (k2 == 1.0);
+    const bool k3_singular = (k3 == 1.0);
+    if (k2_singular || k3_singular)
     {
-        return fallbackMetricAspectRatio();
+        if (k2_singular && k3_singular)
+            return fallbackMetricAspectRatio();
+
+        return -1.0;
     }
 
+    const double focal_den = n2.z() * n3.z();
     const double focal_squared = -(n2.x() * n3.x() + n2.y() * n3.y()) / focal_den;
-    if (focal_squared <= std::numeric_limits<double>::epsilon() || !std::isfinite(focal_squared))
+    if (focal_squared <= 0.0 || !std::isfinite(focal_squared))
     {
         return fallbackMetricAspectRatio();
     }
