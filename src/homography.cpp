@@ -233,11 +233,11 @@ Eigen::Matrix3d Homography::compute(const std::vector<Eigen::Vector2d> &source_p
 
     const int n = static_cast<int>(source_points.size());
 
-    // --- collinear 검사: 진행은 하되 경고 출력 ---
-    if (hasCollinearTriple(source_points))
+    // collinear 검사: 진행은 하되 경고 출력
+    if (hasCollinearTriple(source_points) || hasCollinearTriple(destination_points))
     {
         QMessageBox::warning(nullptr, "Warning",
-            "source points에 3점 이상 collinear(일직선)인 조합이 존재합니다.\n호모그래피가 불안정할 수 있습니다.");
+            "source 또는 destination points에 3점 이상 collinear(일직선)인 조합이 존재합니다.\n호모그래피를 계산할 수 없습니다.");
     }
 
     // --- 정규화 ---
