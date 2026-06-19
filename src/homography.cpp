@@ -1,4 +1,5 @@
 #include "homography.h"
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -31,6 +32,63 @@ std::vector<Eigen::Vector2d> Homography::getConditionedSourcePoints()
 void Homography::updateLog(std::stringstream &msg)
 {
     emit updateLogToMainWindow(msg);
+}
+
+static bool isFinitePoint(const Eigen::Vector2d &point)
+{
+    return std::isfinite(point.x()) && std::isfinite(point.y());
+}
+
+static double cross2d(const Eigen::Vector2d &a,
+                      const Eigen::Vector2d &b,
+                      const Eigen::Vector2d &c)
+{
+    const Eigen::Vector2d ab = b - a;
+    const Eigen::Vector2d ac = c - a;
+    return ab.x() * ac.y() - ab.y() * ac.x();
+}
+
+static bool isValidProjectedRectangle(const std::vector<Eigen::Vector2d> &corners)
+{
+    if (corners.size() != 4)
+        return false;
+
+    double max_distance_squared = 0.0;
+    for (int i = 0; i < 4; ++i)
+    {
+        if (!isFinitePoint(corners[i]))
+            return false;
+
+        for (int j = i + 1; j < 4; ++j)
+            max_distance_squared = std::max(max_distance_squared,
+                                            (corners[i] - corners[j]).squaredNorm());
+    }
+
+    if (max_distance_squared <= std::numeric_limits<double>::epsilon())
+        return false;
+
+    const double distance_tolerance_squared = max_distance_squared * 1e-12;
+    for (int i = 0; i < 4; ++i)
+        for (int j = i + 1; j < 4; ++j)
+            if ((corners[i] - corners[j]).squaredNorm() <= distance_tolerance_squared)
+                return false;
+
+    const double area_tolerance = max_distance_squared * 1e-10;
+    int winding_sign = 0;
+    for (int i = 0; i < 4; ++i)
+    {
+        const double cross = cross2d(corners[i], corners[(i + 1) % 4], corners[(i + 2) % 4]);
+        if (std::abs(cross) <= area_tolerance)
+            return false;
+
+        const int current_sign = cross > 0.0 ? 1 : -1;
+        if (winding_sign == 0)
+            winding_sign = current_sign;
+        else if (current_sign != winding_sign)
+            return false;
+    }
+
+    return true;
 }
 
 Eigen::Vector3d rotationMatrixToEulerAngles(const Eigen::Matrix3d &R)
@@ -66,6 +124,11 @@ double Homography::computeRealAspectRatio(const Eigen::Vector2d &center,
     {
         std::cerr << "Aspect Ratio 계산에는 4개의 코너 점이 필요합니다." << std::endl;
         return -1;
+    }
+
+    if (!isFinitePoint(center) || !isValidProjectedRectangle(corners))
+    {
+        std::cerr << "Aspect Ratio 계산을 위한 코너 점이 유효한 볼록 사각형이 아닙니다." << std::endl;
     }
 
     std::vector<Eigen::Vector3d> corners_centered_homogeneous =
