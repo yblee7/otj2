@@ -61,6 +61,8 @@ double Homography::computeRealAspectRatio(const Eigen::Vector2d &center,
                                           const std::vector<Eigen::Vector2d> &corners,
                                           Eigen::Vector3d &euler_angles)
 {
+    euler_angles.setZero();
+
     if(corners.size() != 4)
         return -1;
 
