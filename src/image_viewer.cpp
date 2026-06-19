@@ -1,56 +1,16 @@
 #include "image_viewer.h"
+#include "document_corner_detector.h"
 #include "homography.h"
 
 #include <QDebug>
 
 #include <opencv2/core.hpp>
-//#include <opencv2/ximgproc.hpp>
-#include <opencv2/highgui.hpp>
-
-std::vector<Eigen::Vector2d> organizePoints(const std::vector<Eigen::Vector2d> &points)
-{
-    std::vector<Eigen::Vector2d> points_organized = points;
-    Eigen::Vector2d centroid(0, 0);
-    for(const auto &p : points)
-    {
-        centroid += p;
-    }
-    centroid /= (double)points.size();
-    for(auto &p : points_organized)
-    {
-        p -= centroid;
-    }
-    struct {
-        bool operator()(Eigen::Vector2d a, Eigen::Vector2d b) const
-        {
-            return atan2(a(1), a(0)) < atan2(b(1), b(0));
-        }
-    } compareAngle;
-
-    std::sort(points_organized.begin(), points_organized.end(), compareAngle);
-
-    for(auto &p : points_organized)
-    {
-        p += centroid;
-    }
-
-    return points_organized;
-}
-
-void rangeAngle(double &angle)
-{
-    if(angle < 0)
-        angle += 2 * M_PI;
-
-    if(angle > M_PI)
-        angle = 2 * M_PI - angle;
-
-}
 
 ImageViewer::ImageViewer(QWidget *parent) :
     QWidget(parent),
     is_translating(false),
     is_zooming(false),
+    is_resetting(false),
     image_zoom(1),
     show_magnifier(false),
     view_corners(true),
@@ -129,17 +89,26 @@ QPointF ImageViewer::imagePoseToWidgetPose(const QPointF& image_pose)
 
 void ImageViewer::resetCorners()
 {
-    // Implement document's corner detection algorithm below
+    corners.clear();
 
-    if(corners.size() == 0)
+    if (!image.isNull())
     {
-        int width = this->image.width();
-        int height = this->image.height();
-        corners.push_back(QPointF(width * 0.1, height * 0.1));
-        corners.push_back(QPointF(width * 0.9, height * 0.1));
-        corners.push_back(QPointF(width * 0.9, height * 0.9));
-        corners.push_back(QPointF(width * 0.1, height * 0.9));
+        QList<QPointF> detected = DocumentCornerDetector::detect(image);
+        if (detected.size() == 4)
+        {
+            corners = detected;
+            emit infoCornersUpdated();
+            return;
+        }
     }
+
+    // 검출 실패 시 기본 위치 (10%~90%)
+    int width  = this->image.width();
+    int height = this->image.height();
+    corners.push_back(QPointF(width * 0.1, height * 0.1));
+    corners.push_back(QPointF(width * 0.9, height * 0.1));
+    corners.push_back(QPointF(width * 0.9, height * 0.9));
+    corners.push_back(QPointF(width * 0.1, height * 0.9));
 
     emit infoCornersUpdated();
 }
@@ -157,8 +126,6 @@ bool ImageViewer::setImage(const QImage &image_in)
 
     cursor_pose_image = QPointF(0, 0);
     cursor_pose_widget = QPointF(0, 0);
-
-    QString object_name = this->objectName();
 
     if(detect_corners)
     {
@@ -239,9 +206,85 @@ void ImageViewer::paintEvent(QPaintEvent *event)
 
     offset = new_top_left;
 
+    QRectF active_magnifier_rect;
+    bool has_active_magnifier = false;
+
+    if(show_magnifier && !image.isNull())
+    {
+        const double magnifier_zoom = 4.0;
+
+        QRectF src_rect(
+            cursor_pose_image.x() - magnifier_rect.width()  / (2.0 * magnifier_zoom * image_zoom),
+            cursor_pose_image.y() - magnifier_rect.height() / (2.0 * magnifier_zoom * image_zoom),
+            magnifier_rect.width()  / (magnifier_zoom * image_zoom),
+            magnifier_rect.height() / (magnifier_zoom * image_zoom)
+        );
+
+        QRectF dst_rect;
+        if(magnifier_location == MagnifierLocation::TopLeft)
+        {
+            dst_rect = QRectF(1, 1, magnifier_rect.width(), magnifier_rect.height());
+        }
+        else if(magnifier_location == MagnifierLocation::Cursor)
+        {
+            dst_rect = QRectF(
+                cursor_pose_widget.x() - magnifier_rect.width()  / 2.0,
+                cursor_pose_widget.y() - magnifier_rect.height() / 2.0,
+                magnifier_rect.width(),
+                magnifier_rect.height()
+            );
+        }
+        else
+        {
+            qreal x = cursor_pose_widget.x() > this->rect().center().x() ? 0 : this->rect().width()  - magnifier_rect.width();
+            qreal y = cursor_pose_widget.y() > this->rect().center().y() ? this->rect().height() - magnifier_rect.height() : 0;
+            dst_rect = QRectF(x, y, magnifier_rect.width(), magnifier_rect.height());
+        }
+        active_magnifier_rect = dst_rect;
+        has_active_magnifier = true;
+
+        painter.drawImage(dst_rect, image, src_rect);
+
+        // image coord -> magnifier widget coord
+        auto toMagnifier = [&](const QPointF &p) {
+            return QPointF(dst_rect.left() + (p.x() - src_rect.left()) * magnifier_zoom * image_zoom,
+                           dst_rect.top()  + (p.y() - src_rect.top())  * magnifier_zoom * image_zoom);
+        };
+
+        if(corners.size() > 0)
+        {
+            painter.setClipRect(dst_rect);
+            painter.setPen(QPen(selected_point > -1 ? Qt::red : Qt::green, 3));
+            painter.setBrush(Qt::NoBrush);
+            for(int i = 0; i < corners.size(); ++i)
+                painter.drawLine(toMagnifier(corners[i]),
+                                 toMagnifier(corners[(i + 1) % corners.size()]));
+            painter.setClipping(false);
+        }
+        
+        // 테두리랑 중앙 선 그리기
+        painter.setPen(QPen(Qt::yellow, 1));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawLine(QPointF(dst_rect.left(),       dst_rect.center().y()),
+                         QPointF(dst_rect.right(),      dst_rect.center().y()));
+        painter.drawLine(QPointF(dst_rect.center().x(), dst_rect.top()),
+                         QPointF(dst_rect.center().x(), dst_rect.bottom()));
+
+        painter.setPen(QPen(QColor(0, 255, 255), 2));
+        painter.drawRect(dst_rect);
+    }
+
     int pen_size_min = 4 * image_zoom < 4 ? 4 : 4 * image_zoom;
     if(corners.size() > 0)
     {
+        painter.save();
+        if (has_active_magnifier)
+        {
+            QRegion clip_region(this->rect());
+            clip_region -= QRegion(active_magnifier_rect.toAlignedRect());
+            painter.setClipRegion(clip_region);
+        }
+
         if(selected_point > -1)
         {
             painter.setPen(QPen(Qt::red , pen_size_min * 0.5));
@@ -252,18 +295,14 @@ void ImageViewer::paintEvent(QPaintEvent *event)
             painter.setPen(QPen(Qt::green, pen_size_min * 0.5));
             painter.setBrush(Qt::green);
         }
-        for (size_t i = 0; i < corners.size(); ++i)
+        for (int i = 0; i < corners.size(); ++i)
         {
             const QPointF &p1 = imagePoseToWidgetPose(corners[i]);
-            size_t j = (i + 1) % corners.size();
+            int j = (i + 1) % corners.size();
             const QPointF &p2 = imagePoseToWidgetPose(corners[j]);
             painter.drawLine(p1, p2);
         }
-    }
-
-    if(show_magnifier)
-    {
-        // Magnifier implementation here
+        painter.restore();
     }
 
     painter.end();
@@ -324,8 +363,8 @@ void ImageViewer::mousePressEvent(QMouseEvent *event)
     {
         Eigen::Vector2d pose(cursor_pose_image.x(), cursor_pose_image.y());
         double nearest_distance = 1e6;
-        size_t nearest_index = 0;
-        for(size_t i = 0; i < corners.size(); ++i)
+        int nearest_index = 0;
+        for(int i = 0; i < corners.size(); ++i)
         {
             const QPointF &p = corners[i];
             double distance = (pose - Eigen::Vector2d(p.x(), p.y())).norm();

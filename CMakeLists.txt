@@ -30,15 +30,18 @@ configure_file(
     ${CMAKE_CURRENT_BINARY_DIR}/version.rc
     @ONLY)
 
+find_package(OpenMP)
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets REQUIRED)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
-find_package(OpenCV REQUIRED world)
-find_package(Eigen3 REQUIRED)
+find_package(OpenCV 4.7 REQUIRED world)
+find_package(Eigen3 3.4 REQUIRED)
 
 set(PROJECT_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/mainwindow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/mainwindow.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/mainwindow.ui
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/document_corner_detector.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document_corner_detector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/image_viewer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/image_viewer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/homography.h
@@ -83,7 +86,7 @@ if(MSVC)
     target_link_options(ojt_homography PRIVATE /SUBSYSTEM:CONSOLE)
 endif()
 
-target_link_libraries(ojt_homography PRIVATE Qt${QT_VERSION_MAJOR}::Widgets ${OpenCV_LIBRARIES} Eigen3::Eigen)
+target_link_libraries(ojt_homography PRIVATE Qt${QT_VERSION_MAJOR}::Widgets ${OpenCV_LIBRARIES} Eigen3::Eigen $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>)
 
 set_target_properties(ojt_homography PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER cle.vision
